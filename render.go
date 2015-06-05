@@ -15,7 +15,8 @@ import (
 	"unicode/utf8"
 )
 
-func Render(writer io.Writer, packageName string, renderMethod func(io.Writer, *WadlMethod) error, methods ...*WadlMethod) error {
+// Render the method.
+func Render(writer io.Writer, packageName string, renderMethod func(io.Writer, *WADLMethod) error, methods ...*WADLMethod) error {
 
 	fmt.Fprintf(writer, "package %s", packageName)
 
@@ -29,7 +30,8 @@ func Render(writer io.Writer, packageName string, renderMethod func(io.Writer, *
 	return nil
 }
 
-func RenderMethodWithBulkTypes(writer io.Writer, method *WadlMethod) error {
+// RenderMethodWithBulkTypes will render the specified method to the writer.
+func RenderMethodWithBulkTypes(writer io.Writer, method *WADLMethod) error {
 	const funBodyTmpl = `
 
 {{if .Documentation}}{{renderDocumentation .Documentation}}{{end}}
@@ -106,7 +108,7 @@ query.Add("{{.Name}}", fmt.Sprintf("%v", args.{{renderIdentifiers .Name true}}))
 
 	var replaceTemplateVarsCode bytes.Buffer
 	var replaceQueryVarsCode bytes.Buffer
-	var bodyParams []*WadlVariable
+	var bodyParams []*WADLVariable
 	for _, param := range method.Arguments {
 		debug.Printf("param type: %s", param.RequestType)
 		switch param.RequestType {
@@ -147,7 +149,7 @@ query.Add("{{.Name}}", fmt.Sprintf("%v", args.{{renderIdentifiers .Name true}}))
 		ArgType                  string
 		ResponseType             string
 		MethodType               string
-		Url                      string
+		URL                      string
 		ReplaceTemplateVarsCode  string
 		ReplaceQueryVarsCode     string
 		AcceptableStatusCodesCsv string
@@ -157,7 +159,7 @@ query.Add("{{.Name}}", fmt.Sprintf("%v", args.{{renderIdentifiers .Name true}}))
 		renderMethodParamName(methName),
 		renderMethodResultsName(methName),
 		method.Type,
-		method.Url,
+		method.URL,
 		replaceTemplateVarsCode.String(),
 		replaceQueryVarsCode.String(),
 		strings.Join(method.AcceptableStatus, ","),
@@ -202,11 +204,13 @@ func exampleToStruct(example string, typeName string) string {
 	return string(output)
 }
 
-func RenderParameterType(writer io.Writer, methName string, params []*WadlVariable) {
+// RenderParameterType builds the variable code.
+func RenderParameterType(writer io.Writer, methName string, params []*WADLVariable) {
 	renderVariableCollection(writer, methName, params, renderMethodParamName)
 }
 
-func RenderResultsType(writer io.Writer, methName string, params []*WadlVariable) {
+// RenderResultsType builds the results type code.
+func RenderResultsType(writer io.Writer, methName string, params []*WADLVariable) {
 	renderVariableCollection(writer, methName, params, renderMethodResultsName)
 }
 
@@ -243,7 +247,7 @@ func renderDocumentation(doc string) string {
 	return "// " + line                //docBlock.String()
 }
 
-func renderVariableCollection(writer io.Writer, methName string, params []*WadlVariable, renderCollectionName func(string) string) {
+func renderVariableCollection(writer io.Writer, methName string, params []*WADLVariable, renderCollectionName func(string) string) {
 	const collectionType = `
 
 type {{.CollectionName}} struct {
@@ -271,7 +275,7 @@ type {{.CollectionName}} struct {
 		"renderDocumentation": renderDocumentation,
 	}).Parse(collectionType)).Execute(&typeBody, struct {
 		CollectionName string
-		Variables      []*WadlVariable
+		Variables      []*WADLVariable
 		FormatName     func(string, bool) string
 	}{
 		CollectionName: renderCollectionName(methName),

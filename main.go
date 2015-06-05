@@ -15,15 +15,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kat-co/wadl2go/wadl"
 	"github.com/katco-/vala"
-	"github.com/katco-/wadl2go/wadl"
 )
 
 var (
 	debug *log.Logger
 )
 
-type WadlEntryDoc struct {
+// WADLEntryDoc is entry point to a wadl document
+type WADLEntryDoc struct {
 	XMLName xml.Name `xml:"application"`
 	wadl.TxsdApplication
 }
@@ -35,7 +36,7 @@ func main() {
 	toFile := flag.String("to-file", "", "Specifies the destination file")
 	// TODO(katco-): Set default value to derived value from to-file PWD.
 	packageName := flag.String("package-name", "main", "Specifies the package the generated file will be under.")
-	userBaseUrl := flag.String("base-url", "", "Specifies a replacement for the given base URL.")
+	userBaseURL := flag.String("base-url", "", "Specifies a replacement for the given base URL.")
 	flag.Parse()
 
 	var debugBuff io.Writer
@@ -62,7 +63,7 @@ func main() {
 		panic(err)
 	}
 
-	var rawDoc WadlEntryDoc
+	var rawDoc WADLEntryDoc
 	if err := xml.Unmarshal(contents, &rawDoc); err != nil && err != io.EOF {
 		log.Fatal(err)
 	}
@@ -71,28 +72,28 @@ func main() {
 		panic(wadl.WalkErrors)
 	}
 
-	structuredDoc := WadlDoc{Methods: make(map[string]*WadlMethod)}
+	structuredDoc := WADLDoc{Methods: make(map[string]*WADLMethod)}
 
 	// Pull type information from the grammars.
-	var grammarTypes []*WadlVariable
+	var grammarTypes []*WADLVariable
 	for _, grammar := range rawDoc.Grammars.Includes {
 		fileType := path.Ext(string(grammar.Href))
 		switch fileType {
 		default:
 			log.Printf("WARNING: skipping unsupported grammar type: %v", fileType)
 		case ".json":
-			rawSchema, err := readJsonSchemaFile(path.Join(path.Dir(*wadlFilePath), string(grammar.Href)))
+			rawSchema, err := readJSONSchemaFile(path.Join(path.Dir(*wadlFilePath), string(grammar.Href)))
 			if err != nil {
 				log.Fatalf("could not read JSON schema: %v", err)
 			}
-			grammarTypes = append(grammarTypes, rawJsonSchemaParamToParam(rawSchema)...)
+			grammarTypes = append(grammarTypes, rawJSONSchemaParamToParam(rawSchema)...)
 		}
 	}
 
 	// Build methods.
 	for _, rawMethod := range rawDoc.Methods {
 		debug.Printf("rawMethod: %s", rawMethod.Id)
-		method := &WadlMethod{
+		method := &WADLMethod{
 			Documentation: rawDocsToDoc(rawMethod.Docs),
 			Name:          string(rawMethod.Id),
 			Type:          string(rawMethod.Name),
@@ -157,20 +158,20 @@ func main() {
 	}
 
 	for _, resources := range rawDoc.Resourceses {
-		baseUrl := *userBaseUrl
-		if baseUrl == "" {
-			baseUrl = string(resources.Base)
+		baseURL := *userBaseURL
+		if baseURL == "" {
+			baseURL = string(resources.Base)
 		}
 
-		parsedBaseUrl, err := url.Parse(baseUrl)
+		parsedBaseURL, err := url.Parse(baseURL)
 		if err != nil {
 			log.Fatalf("could not determine the base URL: %s", err)
 		}
-		debug.Println("base: " + parsedBaseUrl.String())
-		recurseResources(structuredDoc.Methods, *parsedBaseUrl, nil, resources.Resources)
+		debug.Println("base: " + parsedBaseURL.String())
+		recurseResources(structuredDoc.Methods, *parsedBaseURL, nil, resources.Resources)
 	}
 
-	var methods []*WadlMethod
+	var methods []*WADLMethod
 	for _, m := range structuredDoc.Methods {
 		methods = append(methods, m)
 	}
@@ -181,7 +182,7 @@ func main() {
 	ioutil.WriteFile(*toFile, file.Bytes(), 0640)
 }
 
-func readJsonSchemaFile(filePath string) (map[string]interface{}, error) {
+func readJSONSchemaFile(filePath string) (map[string]interface{}, error) {
 	body, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -195,12 +196,12 @@ func readJsonSchemaFile(filePath string) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func rawJsonSchemaParamToParam(rawParams map[string]interface{}) (params []*WadlVariable) {
+func rawJSONSchemaParamToParam(rawParams map[string]interface{}) (params []*WADLVariable) {
 
 	// First discover all variables.
 	if properties, ok := rawParams["properties"].(map[string]interface{}); ok {
 		for varName, varAttrs := range properties {
-			newParam := &WadlVariable{Name: varName, RequestType: "plain"}
+			newParam := &WADLVariable{Name: varName, RequestType: "plain"}
 
 			for attrName, attr := range varAttrs.(map[string]interface{}) {
 				switch strings.ToLower(attrName) {
@@ -210,7 +211,7 @@ func rawJsonSchemaParamToParam(rawParams map[string]interface{}) (params []*Wadl
 					newParam.Type = attr.(string)
 				case "properties":
 					debug.Printf("JSON SCHEMA: ATTR: %v", varAttrs)
-					newParam.EmbeddedVar = rawJsonSchemaParamToParam(varAttrs.(map[string]interface{}))
+					newParam.EmbeddedVar = rawJSONSchemaParamToParam(varAttrs.(map[string]interface{}))
 				case "documentation":
 					newParam.Documentation = attr.(string)
 				}
@@ -241,23 +242,26 @@ func rawJsonSchemaParamToParam(rawParams map[string]interface{}) (params []*Wadl
 	return params
 }
 
-type WadlDoc struct {
-	Methods map[string]*WadlMethod
+// WADLDoc has a list of wadl methods
+type WADLDoc struct {
+	Methods map[string]*WADLMethod
 }
 
-type WadlMethod struct {
+// WADLMethod are the methods on a service.
+type WADLMethod struct {
 	Documentation string
 	Name          string
 	Type          string
-	Url           string
-	Arguments     []*WadlVariable
-	Results       []*WadlVariable
+	URL           string
+	Arguments     []*WADLVariable
+	Results       []*WADLVariable
 	// TODO(katco-): Track Results element attribute for dereferencing types.
 	ResultsExample   string
 	AcceptableStatus []string
 }
 
-type WadlVariable struct {
+// WADLVariable is the variable used in a method.
+type WADLVariable struct {
 	URI           string
 	Documentation string
 	Name          string
@@ -265,18 +269,18 @@ type WadlVariable struct {
 	RequestType   string
 	Required      bool
 	Path          string
-	EmbeddedVar   []*WadlVariable
+	EmbeddedVar   []*WADLVariable
 }
 
-func dereferenceExampleFile(basePath, innerXml string) (string, error) {
+func dereferenceExampleFile(basePath, innerXML string) (string, error) {
 
-	debug.Printf("inner XML: %s", innerXml)
+	debug.Printf("inner XML: %s", innerXML)
 
 	type DocElem struct {
 		Href string `xml:"href,attr"`
 	}
 	var elem DocElem
-	if err := xml.NewDecoder(strings.NewReader(innerXml)).Decode(&elem); err != nil {
+	if err := xml.NewDecoder(strings.NewReader(innerXML)).Decode(&elem); err != nil {
 		return "", err
 	}
 
@@ -287,9 +291,9 @@ func dereferenceExampleFile(basePath, innerXml string) (string, error) {
 }
 
 func recurseResources(
-	methods map[string]*WadlMethod,
+	methods map[string]*WADLMethod,
 	base url.URL, // Copy so we can modify it freely.
-	params []*WadlVariable,
+	params []*WADLVariable,
 	resources []*wadl.TxsdResource,
 ) {
 	for _, resource := range resources {
@@ -307,15 +311,15 @@ func recurseResources(
 				log.Printf("WARNING: referenced method %s was not found", rawMethod)
 				continue
 			}
-			method.Url = baseCopy.String()
+			method.URL = baseCopy.String()
 			method.Arguments = append(method.Arguments, params...)
 		}
 	}
 }
 
-func rawParamToVariable(params []*wadl.TxsdParam) (vars []*WadlVariable) {
+func rawParamToVariable(params []*wadl.TxsdParam) (vars []*WADLVariable) {
 	for _, rawParam := range params {
-		vars = append(vars, &WadlVariable{
+		vars = append(vars, &WADLVariable{
 			Documentation: rawDocsToDoc(rawParam.Docs),
 			Name:          string(rawParam.Name),
 			Type:          string(rawParam.Type),
