@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/katco-/vala"
-	"github.com/katco-/wadl2go/wadl"
+	"github.com/kat-co/vala"
+	"github.com/kat-co/wadl2go/wadl"
 )
 
 var (
@@ -75,17 +75,21 @@ func main() {
 
 	// Pull type information from the grammars.
 	var grammarTypes []*WadlVariable
-	for _, grammar := range rawDoc.Grammars.Includes {
-		fileType := path.Ext(string(grammar.Href))
-		switch fileType {
-		default:
-			log.Printf("WARNING: skipping unsupported grammar type: %v", fileType)
-		case ".json":
-			rawSchema, err := readJsonSchemaFile(path.Join(path.Dir(*wadlFilePath), string(grammar.Href)))
-			if err != nil {
-				log.Fatalf("could not read JSON schema: %v", err)
+	if rawDoc.Grammars == nil {
+		log.Print("WARNING: No grammars in doc")
+	} else {
+		for _, grammar := range rawDoc.Grammars.Includes {
+			fileType := path.Ext(string(grammar.Href))
+			switch fileType {
+			default:
+				log.Printf("WARNING: skipping unsupported grammar type: %v", fileType)
+			case ".json":
+				rawSchema, err := readJsonSchemaFile(path.Join(path.Dir(*wadlFilePath), string(grammar.Href)))
+				if err != nil {
+					log.Fatalf("could not read JSON schema: %v", err)
+				}
+				grammarTypes = append(grammarTypes, rawJsonSchemaParamToParam(rawSchema)...)
 			}
-			grammarTypes = append(grammarTypes, rawJsonSchemaParamToParam(rawSchema)...)
 		}
 	}
 
