@@ -310,12 +310,12 @@ func renderType(wadlType string) string {
 	default:
 		log.Printf("WARNING: unknown WADL type: %s", wadlType)
 		return wadlType
-	case "object":
+	case "object", "xsd:dict":
 		// TODO(katco-): Correctly reference the auto-generated structure type.
 		return "interface{}"
 	case "xsd:datetime":
 		return "time.Time"
-	case "string", "xsd:string", "csapi:uuid", "csapi:string":
+	case "string", "xsd:string", "xsd:uuid", "csapi:uuid", "csapi:string":
 		return "string"
 	case "xsd:int", "integer":
 		return "int"

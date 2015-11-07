@@ -16,10 +16,23 @@ Usage:
 :   -to-file="": Specifies the destination file
 :   -wadl-file="": Specifies which file to parse
 
+* Requirements
+
+Rendering the output execs the gojson tool to generate go structs for json data. This must be installed, and $GOPATH/bin must be on your path:
+
+#+BEGIN_SRC sh
+  go get github.com/ChimeraCoder/gojson/gojson
+#+END_SRC
+
+The go xml parser does not understand DTDs. If the input file uses these, the wadl input will need preprocessing to resolve external entities and replace them. For example:
+
+#+BEGIN_SRC sh
+  xmllint --loaddtd --noent --dropdtd example.wadl > example-noent.wadl
+#+END_SRC
 
 * Disclaimer
 
-Currently, this is just a wonderfully hacky thing I coded up in a few days to generate a client for Openstack's [[http://docs.openstack.org/developer/cinder/][Cinder]]. Because of ambiguities in the WADL format, it can be difficult to reliably generate code without relying on some inferrence. This inferrence is very nascent at the moment.
+Currently, this is just a wonderfully hacky thing I coded up in a few days to generate a client for Openstack's [[http://docs.openstack.org/developer/cinder/][Cinder]]. Because of ambiguities in the WADL format, it can be difficult to reliably generate code without relying on some inference. This inference is very nascent at the moment.
 
 Much work could be done to improve this tool; however, I thought this might help someone out if it wasn't sitting on my computer bit-rotting.
 
@@ -46,7 +59,7 @@ These are useful feedback as to whether or not the response is reasonable. wadl2
 **** TODO [[file:render.go::/%20TODO(katco-):%20Correctly%20reference%20the%20auto-generated%20structure%20type.][When rendering variable types, correctly reference the auto-generated structure type.]]
 **** TODO Support automatic gofmt.
 
-** Inferrence
+** Inference
 
 **** TODO Look at all attributes on response/request representations and attempt to find URI's that match grammar elements.
 
